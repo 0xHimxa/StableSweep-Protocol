@@ -30,6 +30,10 @@ contract StableToken is ERC20, Ownable {
     // Used to normalize ETH amount to 18 decimals
     uint256 private constant PRICE_PRECISION = 1e18;
 
+    uint256 private constant buy_fee = 10;
+    uint256 private constant fee_pricision =100;
+    uint256 private constant sell_fee = 15;
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -70,15 +74,17 @@ contract StableToken is ERC20, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     // Mints tokens to the specified user based on ETH sent
-    function buyToken(address to) external payable ethAmountAndAddressChecks returns (bool) {
+    function buyToken(address to) external payable ethAmountAndAddressChecks onlyOwner returns (bool) {
         if (to == address(0)) {
             revert StableToken__UserBuyingAddressCantBeZero();
         }
 
         uint256 _amountWorth = _getAndConvertEthPrice(msg.value);
+      uint256 amountMinintfeeRemoved = (_amountWorth * buy_fee)/fee_pricision;
+      uint256 amount = _amountWorth - amountMinintfeeRemoved;
 
         // Mint tokens to the user
-        super._mint(to, _amountWorth);
+        super._mint(to, amount);
 
         return true;
     }
@@ -89,7 +95,7 @@ contract StableToken is ERC20, Ownable {
      * - own the tokens
      * - have approved this contract to spend them
      */
-    function sellToken(address to, uint256 amount) external checkBalanceOfUser(amount) returns (bool) {
+    function sellToken(address to, uint256 amount) external checkBalanceOfUser(amount) onlyOwner returns (bool) {
         if (to == address(0)) {
             revert StableToken__UserSellingAddressCantBeZero();
         }
@@ -97,8 +103,12 @@ contract StableToken is ERC20, Ownable {
         // Calculate the ETH amount to send for the given token amount
         uint256 ethWorth = _convertUSDToEth(amount);
 
+        uint256 fee = (ethWorth * sell_fee)/fee_pricision;
+        uint256 ethWorthSellfeeRemoved = ethWorth - fee;
+
+
         // Check that the contract has enough ETH to pay
-        if (address(this).balance < ethWorth) {
+        if (address(this).balance < ethWorthSellfeeRemoved) {
             revert StableToken__NoEnoughLiquidity();
         }
 
@@ -106,7 +116,7 @@ contract StableToken is ERC20, Ownable {
         _burn(msg.sender, amount);
 
         // Send ETH to the user
-        (bool success,) = payable(to).call{value: ethWorth}("");
+        (bool success,) = payable(to).call{value: ethWorthSellfeeRemoved}("");
         if (!success) {
             revert StableToken__FailedToTransferEth();
         }

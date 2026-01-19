@@ -30,6 +30,8 @@ contract RaffileEngine {
     error RaffileEngine__YouAreNotTheWinner();
     error RaffileEngine__RoundWinnerNotSet();
     error RaffileEngine__failedToClaimReward();
+    error RaffileEngine__RewardAlreadyClaimed();
+
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -75,6 +77,13 @@ contract RaffileEngine {
     /// @notice Tracks tickets used by a user per round
     mapping(uint256 => mapping(address => uint256)) public ticketsUsedPerRound;
 
+    mapping(uint256 => bool) public rewardClaimed;
+
+/// @notice StableToken locked per raffle round
+mapping(uint256 => uint256) public roundPrizePool;
+
+/// @notice Total StableToken locked across all active rounds
+uint256 public totalLockedTokens;
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
     //////////////////////////////////////////////////////////////*/
@@ -119,6 +128,8 @@ contract RaffileEngine {
         if (!success) {
             revert RaffileEngine__FailedToBuyTicket();
         }
+          roundPrizePool[raffleId] += cost;
+totalLockedTokens += cost;
 
         emit UserBuyTickets(msg.sender, tickets);
     }
@@ -179,7 +190,7 @@ contract RaffileEngine {
      * @return winner Address of winning participant
      */
     function pickWinner(uint256 random) external returns (address winner) {
-        currentState = RaffleState.Closed;
+      
         uint256 total = roundTotalTickets[raffleId];
         if (total == 0) {
             revert RaffileEngine__NoPlayers();
@@ -222,6 +233,10 @@ contract RaffileEngine {
      * @param _roundId The round ID to claim reward from
      */
     function claimRewardWon(uint256 _roundId) public {
+        if (rewardClaimed[_roundId]) {
+            revert RaffileEngine__RewardAlreadyClaimed();
+        }
+
         address winnerAddress = roundWinner[_roundId];
         if (winnerAddress == address(0)) {
             revert RaffileEngine__RoundWinnerNotSet();
@@ -230,9 +245,12 @@ contract RaffileEngine {
         if (winnerAddress != msg.sender) {
             revert RaffileEngine__YouAreNotTheWinner();
         }
+        rewardClaimed[_roundId] = true;
 
-        uint256 amountWon = roundTotalTickets[_roundId] * entranceFee;
+        uint256 amountWon = roundPrizePool[_roundId];
 
+   roundPrizePool[_roundId] = 0;
+    totalLockedTokens -= amountWon;
         // Transfer StableToken reward to winner
         bool success = stableToken.transfer(winnerAddress, amountWon);
         if (!success) {
