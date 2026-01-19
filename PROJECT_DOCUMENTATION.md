@@ -26,27 +26,44 @@ tiket/
 - Installed OpenZeppelin contracts for ERC20 implementation
 - Installed Chainlink contracts for price feed integration
 
-### 2. Core Token Implementation ✅
-- **Contract**: `StableToken.sol` (146 lines)
-- **Inheritance**: Extends OpenZeppelin's ERC20
+### 2. Fee System Implementation ✅ (NEW - January 2026)
+- **Buy Fee**: 10% fee on all token purchases
+- **Sell Fee**: 15% fee on all token sales
+- **Fee Precision**: 100 basis points for accurate calculations
+- **Automatic Deduction**: Fees automatically deducted during transactions
+- **Enhanced Logic**: Improved token minting and burning with fee considerations
+
+### 3. Core Token Implementation ✅
+- **Contract**: `StableToken.sol` (148 lines)
+- **Inheritance**: Extends OpenZeppelin's ERC20 and Ownable
 - **Token Name**: "FortuneFlip"
 - **Token Symbol**: "FLIP"
 - **License**: MIT
+- **NEW**: Fee system constants and logic integrated
 
-### 3. Key Features Implemented
+### 4. Key Features Implemented
 
 #### Buy Functionality ✅
 - `buyToken(address to)` - Allows users to purchase tokens with ETH
 - Uses Chainlink ETH/USD price feed (Sepolia testnet: `0x694AA1769357215DE4FAC081bf1f309aDC325306`)
 - Converts ETH sent to equivalent token amount
-- Mints tokens directly to recipient address
+- **NEW**: 10% fee automatically deducted from purchased amount
+- Mints tokens directly to recipient address (minus fees)
 
 #### Sell Functionality ✅
 - `sellToken(address to, uint256 amount)` - Allows users to sell tokens back for ETH
 - Burns tokens from caller
 - Calculates ETH equivalent based on current price
-- Transfers ETH to recipient address
+- **NEW**: 15% fee automatically deducted from ETH proceeds
+- Transfers ETH to recipient address (minus fees)
 - Includes liquidity checks
+
+#### Fee System ✅ (NEW)
+- `buy_fee = 10` (10% fee on purchases)
+- `sell_fee = 15` (15% fee on sales)
+- `fee_pricision = 100` (basis points for calculations)
+- Automatic fee calculation and deduction
+- Enhanced token economics for platform sustainability
 
 #### Security Measures ✅
 - Custom error definitions for gas efficiency
@@ -64,12 +81,16 @@ tiket/
 
 ### 5. Git History
 Recent commits show progressive development:
-1. `00ef9bd` - Completed sell token logic refactor
-2. `4849436` - Implemented buy functionality  
-3. `8578870` - Created protocol token and implemented buy token
-4. `d0a47b2` - Removed default README
-5. `b885fff` - Installed needed dependencies
-6. `f851ca5` - Set up development environment
+1. `9f3534f` - Removed uneeded checks (gas optimization)
+2. `8536e84` - **NEW**: Added fee to the stable contract
+3. `9367c57` - Created a doc for the engine
+4. `2974dc6` - Added comment where needed
+5. `c7f7bc4` - Implement reset start and claim function
+6. `5db5b84` - Added commnet for readability
+7. `bb8361a` - Added the pickWinner funtions
+8. `17c5b2d` - Refactored engine logic
+9. `21a408a` - Added nuy ticket functions
+10. `f99d66b` - Implement the basic of entering the raffles
 
 ## Current Issues & Notes
 
@@ -90,6 +111,13 @@ Recent commits show progressive development:
 3. Add complexity to the system as planned
 4. Consider adding admin functions and security features
 
+## Recent Completed Tasks (January 2026)
+✅ **Fee System Implementation**: Successfully added buy/sell fees to token contract
+✅ **Code Optimization**: Removed unnecessary checks for gas efficiency
+✅ **Documentation Updates**: Enhanced engine documentation with new features
+✅ **Prize Pool Management**: Improved token locking and unlocking mechanisms
+✅ **Enhanced Comments**: Added comprehensive code comments for readability
+
 ## Dependencies
 - **OpenZeppelin Contracts**: For ERC20 token standard implementation
 - **Chainlink Contracts**: For price feed integration
@@ -101,4 +129,5 @@ Recent commits show progressive development:
 - **Compiler**: Solidity ^0.8.19
 
 ---
-*Documentation generated on January 17, 2026*
+*Documentation updated on January 19, 2026*
+*Recent Changes: Fee system implementation, code optimization, enhanced documentation*

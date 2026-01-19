@@ -16,6 +16,8 @@ The system consists of two main contracts:
   - Token to ETH conversion (sell functionality)
   - Pegged to ETH value via Chainlink ETH/USD price feed
   - Ownable contract with admin controls
+  - **NEW**: Fee system implementation (10% buy fee, 15% sell fee)
+  - **NEW**: Automatic fee deduction during token transactions
 
 ### 2. RaffileEngine.sol
 - **Purpose**: Main raffle management contract
@@ -25,15 +27,20 @@ The system consists of two main contracts:
   - Winner selection using random numbers
   - Reward claiming mechanism
   - Round-based raffle system
+  - **NEW**: Enhanced prize pool management with token locking
+  - **NEW**: Total locked tokens tracking across rounds
+  - **NEW**: Automatic token unlocking on reward claims
 
 ## Core Functionality Implemented
 
 ### Token Exchange System
 ✅ **Completed**: 
-- `buyRaffileToken()` - Users can buy tokens with ETH
-- `sellRaffileToken()` - Users can sell tokens back for ETH
+- `buyRaffileToken()` - Users can buy tokens with ETH (10% fee applied)
+- `sellRaffileToken()` - Users can sell tokens back for ETH (15% fee applied)
 - Integration with Chainlink ETH/USD price feed for accurate pricing
 - Proper error handling and balance checks
+- **NEW**: Automatic fee deduction during transactions
+- **NEW**: Enhanced fee calculation with precision handling
 
 ### Ticket Management
 ✅ **Completed**:
@@ -62,6 +69,9 @@ The system consists of two main contracts:
 - Reward calculation based on total tickets sold
 - Secure transfer of rewards to winners
 - Winner validation and authorization
+- **NEW**: Automatic prize pool management and token unlocking
+- **NEW**: Enhanced tracking of locked tokens per round
+- **NEW**: Proper token flow from ticket purchases to reward claims
 
 ## Technical Implementation Details
 
@@ -89,6 +99,8 @@ The system consists of two main contracts:
 - `entranceFee`: Fixed cost per ticket (5 tokens)
 - `maxTicketsPerRound`: Maximum tickets per user (10)
 - `currentState`: Raffle state (Open/Closed)
+- `roundPrizePool`: Tokens locked per raffle round
+- `totalLockedTokens`: Total tokens locked across all rounds
 - Various mappings for tracking balances, winners, and ticket ranges
 
 ### Events Emitted
@@ -99,25 +111,59 @@ The system consists of two main contracts:
 - `RewardWinnerPicked` - Winner selection
 - `RewardClaimed` - Reward claims
 
+## Recent Updates (January 2026)
+
+### 🆕 New Features Added
+1. **Fee System Implementation**: 
+   - Buy fee: 10% on token purchases
+   - Sell fee: 15% on token sales
+   - Fee precision: 100 basis points
+   - Fees automatically deducted during token transactions
+
+2. **Enhanced Prize Pool Management**:
+   - `roundPrizePool` mapping to track tokens locked per raffle round
+   - `totalLockedTokens` to monitor all locked tokens across rounds
+   - Automatic prize pool accumulation from ticket purchases
+   - Proper token unlocking when rewards are claimed
+
+3. **Improved Reward Claiming**:
+   - Enhanced `claimRewardWon()` function with proper token management
+   - Automatic prize pool reset after reward claims
+   - Total locked tokens tracking updates
+
+4. **Code Refinements**:
+   - Removed unnecessary checks for gas optimization
+   - Added comprehensive comments for better readability
+   - Improved error handling with specific error types
+
+### 🔧 Technical Improvements
+- **Gas Optimization**: Removed redundant validation checks
+- **State Management**: Enhanced tracking of locked tokens and prize pools
+- **Security**: Maintained robust access controls and validation
+- **Documentation**: Added inline comments for complex logic
+
 ## Current Status
 
 ### ✅ Completed Features
-1. Full token exchange system with Chainlink integration
+1. Full token exchange system with Chainlink integration and fee structure
 2. Complete ticket purchasing and management
 3. Raffle entry system with validation
 4. Winner selection algorithm
-5. Reward claiming mechanism
-6. Round management system
+5. Reward claiming mechanism with proper token management
+6. Round management system with prize pool tracking
 7. Comprehensive error handling
 8. Event emission for all major operations
+9. Fee system for sustainable platform operations
+10. Enhanced token locking and unlocking mechanisms
 
 ### 🔄 Areas for Future Enhancement
 1. **Random Number Generation**: Currently uses external random numbers - could integrate Chainlink VRF for on-chain randomness
 2. **Admin Dashboard**: Additional admin functions for system management
 3. **Emergency Controls**: Pause/unpause functionality for emergencies
-4. **Fee System**: Implementation of platform fees
+4. **Dynamic Fee System**: Adjustable fees based on market conditions
 5. **Multi-Raffle Support**: Concurrent raffle rounds
 6. **Advanced Analytics**: On-chain statistics and reporting
+7. **Fee Distribution**: Mechanism to distribute collected fees
 
 ## Testing Status
 
@@ -149,5 +195,5 @@ The project structure includes Foundry testing setup, but specific test files ne
 
 The Raffle Engine represents a solid foundation for a decentralized raffle platform. The core functionality is complete and operational, with proper security measures and gas optimization in place. The system is ready for testing and deployment, with clear paths for future enhancements and feature additions.
 
-*Last Updated: January 2026*
-*Status: Core Implementation Complete*
+*Last Updated: January 19, 2026*
+*Status: Enhanced with Fee System & Optimizations*
