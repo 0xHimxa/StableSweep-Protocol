@@ -98,21 +98,21 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
     // most of this hardcoded value will be removed and be passed throug  contructor instead
 
     //the  maximum gasfee oracle charges
-    bytes32 public keyHash;
+    bytes32 private immutable keyHash;
 
     // A reasonable default is 100000, but this value could be different
     // on other networks.
-    uint32 public callbackGasLimit = 100_000;
+    uint32 private constant callbackGasLimit = 100_000;
 
     // The default is 3, but you can set this higher.
-    uint16 public requestConfirmations = 3;
+    uint16 private constant requestConfirmations = 3;
 
     // For this example, retrieve 2 random values in one request.
     // Cannot exceed VRFCoordinatorV2.MAX_NUM_WORDS.
-    uint32 public numWords = 1;
+    uint32 private constant numWords = 1;
 
     // Storage parameters
-    uint256[] public s_randomWords;
+
     uint256 public s_requestId;
     uint256 public s_subscriptionId;
 
@@ -235,17 +235,7 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         );
     }
 
-    //  we will rename pickwinner to this
-    function fulfillRandomWords(
-        uint256,
-        /* requestId */
-        uint256[] calldata randomWords
-    )
-        internal
-        override
-    {
-        s_randomWords = randomWords;
-    }
+
 
     /*//////////////////////////////////////////////////////////////
                           WINNER SELECTION
@@ -253,15 +243,18 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
 
     /**
      * @notice Picks a raffle winner using a random number
-     * @param random External random value
-     * @return winner Address of winning participant
+     * @param randomWords External random value from chainlink
+     
      */
-    function pickWinner(uint256 random) external returns (address winner) {
+    function fulfillRandomWords( uint256,
+        /* requestId */
+        uint256[] calldata randomWords) internal override  {
         uint256 total = roundTotalTickets[raffleId];
         if (total == 0) {
             revert RaffileEngine__NoPlayers();
         }
 
+uint256 random = randomWords[0];
         uint256 winningTicket = (random % total) + 1;
         TicketRange[] storage ranges = roundRanges[raffleId];
 
@@ -282,7 +275,8 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
                 emit RewardWinnerPicked(raffleId, r.owner);
 
                 _resetRaffleRound();
-                return r.owner;
+                return;
+              
             }
         }
 
