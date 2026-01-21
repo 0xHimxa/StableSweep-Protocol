@@ -21,11 +21,11 @@ contract resuse {
     // _createNewSubscription();
 
     //will need to put this in the deploy script
-   // function _createNewSubscription() private //**onlyOwner**/ {
+    // function _createNewSubscription() private //**onlyOwner**/ {
     // s_subscriptionId = s_vrfCoordinator.createSubscription();
     //Add this contract as a consumer of its own subscription.
-   // s_vrfCoordinator.addConsumer(s_subscriptionId, address(this));
-//}
+    // s_vrfCoordinator.addConsumer(s_subscriptionId, address(this));
+    //}
 
     // Assumes this contract owns link.
     // 1000000000000000000 = 1 LINK

@@ -235,8 +235,6 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         );
     }
 
-
-
     /*//////////////////////////////////////////////////////////////
                           WINNER SELECTION
     //////////////////////////////////////////////////////////////*/
@@ -244,17 +242,22 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
     /**
      * @notice Picks a raffle winner using a random number
      * @param randomWords External random value from chainlink
-     
+     *
      */
-    function fulfillRandomWords( uint256,
+    function fulfillRandomWords(
+        uint256,
         /* requestId */
-        uint256[] calldata randomWords) internal override  {
+        uint256[] calldata randomWords
+    )
+        internal
+        override
+    {
         uint256 total = roundTotalTickets[raffleId];
         if (total == 0) {
             revert RaffileEngine__NoPlayers();
         }
 
-uint256 random = randomWords[0];
+        uint256 random = randomWords[0];
         uint256 winningTicket = (random % total) + 1;
         TicketRange[] storage ranges = roundRanges[raffleId];
 
@@ -276,7 +279,6 @@ uint256 random = randomWords[0];
 
                 _resetRaffleRound();
                 return;
-              
             }
         }
 
