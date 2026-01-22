@@ -20,6 +20,8 @@ contract StableToken is ERC20, Ownable {
     error StableToken__NoEnoughLiquidity();
     error StableToken__FailedToTransferEth();
     error StableToken__UserSellingAddressCantBeZero();
+    error StableToken__FailedToWithdrawEthLiquidity();
+
 
     /*//////////////////////////////////////////////////////////////
                            CONSTANT VARIABLES
@@ -67,6 +69,10 @@ contract StableToken is ERC20, Ownable {
 
         _;
     }
+
+
+
+
 
     /*//////////////////////////////////////////////////////////////
                           EXTERNAL FUNCTIONS
@@ -145,6 +151,24 @@ contract StableToken is ERC20, Ownable {
         // ETH amount = token USD value divided by ETH price
         ethAmount = (_amountWorth * PRICE_PRECISION) / (uint256(price) * PRECISION);
     }
+
+
+// for testing
+
+
+
+function removeLiquidity() external  onlyOwner{
+
+address owner = owner();
+
+(bool success,) = payable(owner).call{value: address(this).balance}("");
+
+if(!success){
+    revert  StableToken__FailedToWithdrawEthLiquidity();
+
+    }
+}
+
 
 
     function getPrecision() external pure returns (uint256) {
