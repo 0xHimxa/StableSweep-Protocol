@@ -5,9 +5,7 @@ pragma solidity ^0.8.0;
 
 // this code is not actually making api calls btw
 
-import {
-    AggregatorV3Interface
-} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title MockV3Aggregator
@@ -43,12 +41,7 @@ contract MockV3Aggregator is AggregatorV3Interface {
         getStartedAt[latestRound] = block.timestamp;
     }
 
-    function updateRoundData(
-        uint80 _roundId,
-        int256 _answer,
-        uint256 _timestamp,
-        uint256 _startedAt
-    ) public {
+    function updateRoundData(uint80 _roundId, int256 _answer, uint256 _timestamp, uint256 _startedAt) public {
         latestRound = _roundId;
         latestAnswer = _answer;
         latestTimestamp = _timestamp;
@@ -57,38 +50,18 @@ contract MockV3Aggregator is AggregatorV3Interface {
         getStartedAt[latestRound] = _startedAt;
     }
 
-    function getRoundData(
-        uint80 _roundId
-    )
+    function getRoundData(uint80 _roundId)
         external
         view
-        returns (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        )
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (
-            _roundId,
-            getAnswer[_roundId],
-            getStartedAt[_roundId],
-            getTimestamp[_roundId],
-            _roundId
-        );
+        return (_roundId, getAnswer[_roundId], getStartedAt[_roundId], getTimestamp[_roundId], _roundId);
     }
 
     function latestRoundData()
         external
         view
-        returns (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        )
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
         return (
             uint80(latestRound),

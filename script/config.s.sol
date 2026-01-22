@@ -6,7 +6,6 @@ import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VR
 import {MockLinkToken} from "@chainlink/contracts/src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "test/priceMock.sol";
 
-
 contract EngineConfig is Script {
     error EngineConfig__NetworkNotSupport();
 
@@ -62,12 +61,15 @@ contract EngineConfig is Script {
         MockLinkToken link = new MockLinkToken();
         MockV3Aggregator priceFeed = new MockV3Aggregator(decimal, price);
 
-        
-
         vm.stopBroadcast();
 
-        localConfig =
-            EngineParams({vrfCoordnator: address(vrf), keyHash: bytes32(0), linkToken: address(link), subId: 0, priceFeed: address(priceFeed)});
+        localConfig = EngineParams({
+            vrfCoordnator: address(vrf),
+            keyHash: bytes32(0),
+            linkToken: address(link),
+            subId: 0,
+            priceFeed: address(priceFeed)
+        });
 
         return localConfig;
     }

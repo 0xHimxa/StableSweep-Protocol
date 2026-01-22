@@ -28,10 +28,13 @@ contract DeployEngine is Script {
                                 RUN
     //////////////////////////////////////////////////////////////*/
 
-    function run() public returns(EngineConfig.EngineParams memory params, StableToken stableToken, RaffileEngine engine) {
+    function run()
+        public
+        returns (EngineConfig.EngineParams memory params, StableToken stableToken, RaffileEngine engine)
+    {
         // Load network-specific configuration
         EngineConfig config = new EngineConfig();
-      params = config.getNetworkConfig();
+        params = config.getNetworkConfig();
 
         // Begin broadcasting transactions from the deployer address
         vm.startBroadcast(user);
@@ -58,7 +61,7 @@ contract DeployEngine is Script {
         //////////////////////////////////////////////////////////////*/
 
         // Deploy the StableToken contract
-       stableToken = new StableToken(params.priceFeed);
+        stableToken = new StableToken(params.priceFeed);
 
         // Deploy the RaffleEngine with required dependencies
         engine = new RaffileEngine(
@@ -66,8 +69,8 @@ contract DeployEngine is Script {
         );
 
         // Transfer StableToken ownership to the engine
-      
-      //  stableToken.transferOwnership(address(engine));
+
+        //  stableToken.transferOwnership(address(engine));
 
         // Register the engine as a consumer of the VRF subscription
         VRFCoordinatorV2_5Mock(params.vrfCoordnator).addConsumer(params.subId, address(engine));
@@ -88,7 +91,6 @@ contract DeployEngine is Script {
         // Stop broadcasting transactions
         vm.stopBroadcast();
 
- return (params, stableToken, engine);
+        return (params, stableToken, engine);
     }
-
 }

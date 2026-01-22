@@ -22,7 +22,6 @@ contract StableToken is ERC20, Ownable {
     error StableToken__UserSellingAddressCantBeZero();
     error StableToken__FailedToWithdrawEthLiquidity();
 
-
     /*//////////////////////////////////////////////////////////////
                            CONSTANT VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -69,10 +68,6 @@ contract StableToken is ERC20, Ownable {
 
         _;
     }
-
-
-
-
 
     /*//////////////////////////////////////////////////////////////
                           EXTERNAL FUNCTIONS
@@ -152,42 +147,39 @@ contract StableToken is ERC20, Ownable {
         ethAmount = (_amountWorth * PRICE_PRECISION) / (uint256(price) * PRECISION);
     }
 
+    // for testing
 
-// for testing
+    function removeLiquidity() external onlyOwner {
+        address owner = owner();
 
+        (bool success,) = payable(owner).call{value: address(this).balance}("");
 
-
-function removeLiquidity() external  onlyOwner{
-
-address owner = owner();
-
-(bool success,) = payable(owner).call{value: address(this).balance}("");
-
-if(!success){
-    revert  StableToken__FailedToWithdrawEthLiquidity();
-
+        if (!success) {
+            revert StableToken__FailedToWithdrawEthLiquidity();
+        }
     }
-}
-
-
 
     function getPrecision() external pure returns (uint256) {
         return PRECISION;
     }
+
     function getPricePrecision() external pure returns (uint256) {
         return PRICE_PRECISION;
     }
+
     function getBuyFee() external pure returns (uint256) {
         return buy_fee;
     }
+
     function getSellFee() external pure returns (uint256) {
         return sell_fee;
     }
+
     function getFeePrecision() external pure returns (uint256) {
         return fee_pricision;
     }
+
     function getFeeAddress() external view returns (address) {
         return feeAddress;
     }
-
 }

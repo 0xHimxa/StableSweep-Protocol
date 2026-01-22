@@ -7,31 +7,23 @@ import {RaffileEngine} from "src/engine.sol";
 import {EngineConfig} from "script/config.s.sol";
 import {DeployEngine} from "script/deploy.s.sol";
 
-
 contract TestStabeleToken is Test {
- 
- StableToken stableToken;
+    StableToken stableToken;
 
- EngineConfig.EngineParams config;
+    EngineConfig.EngineParams config;
     address user = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
     address user2 = makeAddr("user23");
 
-uint256 buyAmount = 2 ether;
+    uint256 buyAmount = 2 ether;
 
+    function setUp() public {
+        DeployEngine deploy = new DeployEngine();
+        EngineConfig.EngineParams memory _config;
+        (_config, stableToken,) = deploy.run();
 
-    function setUp() public{
- DeployEngine deploy = new DeployEngine();
- EngineConfig.EngineParams memory _config;
- ( _config,stableToken, ) = deploy.run();
+        config = _config;
 
- config = _config;
-
-
-vm.deal(user,100 ether);
-vm.deal(user2,100 ether);
-
-
-
+        vm.deal(user, 100 ether);
+        vm.deal(user2, 100 ether);
     }
-    
-    }
+}
