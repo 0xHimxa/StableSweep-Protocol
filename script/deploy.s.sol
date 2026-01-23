@@ -51,7 +51,7 @@ contract DeployEngine is Script {
             vm.roll(1);
 
             // Create a new VRF subscription
-            params.subId = VRFCoordinatorV2_5Mock(params.vrfCoordnator).createSubscription();
+            params.subId = VRFCoordinatorV2_5Mock(params.vrfCoordinator).createSubscription();
 
             console.log(params.subId, "new subscription created");
         }
@@ -65,7 +65,7 @@ contract DeployEngine is Script {
 
         // Deploy the RaffleEngine with required dependencies
         engine = new RaffileEngine(
-            address(stableToken), params.vrfCoordnator, params.keyHash, params.linkToken, params.subId
+            address(stableToken), params.vrfCoordinator, params.keyHash, params.linkToken, params.subId
         );
 
         // Transfer StableToken ownership to the engine
@@ -73,7 +73,7 @@ contract DeployEngine is Script {
         //  stableToken.transferOwnership(address(engine));
 
         // Register the engine as a consumer of the VRF subscription
-        VRFCoordinatorV2_5Mock(params.vrfCoordnator).addConsumer(params.subId, address(engine));
+        VRFCoordinatorV2_5Mock(params.vrfCoordinator).addConsumer(params.subId, address(engine));
 
         /*//////////////////////////////////////////////////////////////
                         VRF FUNDING LOGIC
@@ -81,11 +81,11 @@ contract DeployEngine is Script {
 
         if (block.chainid == 31337) {
             // Local Anvil chain: fund subscription directly via mock
-            VRFCoordinatorV2_5Mock(params.vrfCoordnator).fundSubscription(params.subId, linkFunding);
+            VRFCoordinatorV2_5Mock(params.vrfCoordinator).fundSubscription(params.subId, linkFunding);
         } else if (block.chainid == 11155111) {
             // Sepolia: fund subscription via LINK token transferAndCall
             LinkTokenInterface(params.linkToken)
-                .transferAndCall(params.vrfCoordnator, linkFunding, abi.encode(params.subId));
+                .transferAndCall(params.vrfCoordinator, linkFunding, abi.encode(params.subId));
         }
 
         // Stop broadcasting transactions
