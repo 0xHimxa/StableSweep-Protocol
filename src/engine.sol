@@ -144,6 +144,12 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         s_subscriptionId = subId;
     }
 
+
+
+    receive() external payable {
+        
+    }
+
     /*//////////////////////////////////////////////////////////////
                           TICKET PURCHASE LOGIC
     //////////////////////////////////////////////////////////////*/
@@ -370,4 +376,17 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
 
         emit UserSellToken(msg.sender, value);
     }
+
+
+
+    function getKeyHash() public view returns (bytes32) {
+        return keyHash;
+    }
+    function getSubscriptionId() public view returns (uint256) {
+        return s_subscriptionId;
+    }
+    function getLinkToken() public view returns (address) {
+        return address(LINKTOKEN);
+    }
+
 }

@@ -17,6 +17,7 @@ contract TestStabeleToken is Test {
     RaffileEngine eng;
 
     EngineConfig.EngineParams config;
+    address engAddress;
 
     // Test users
     address user = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
@@ -25,6 +26,7 @@ contract TestStabeleToken is Test {
 
     // Common test amount
     uint256 buyAmount = 2 ether;
+        CallFailed callFail;
 
     /*//////////////////////////////////////////////////////////////
                                 SETUP
@@ -37,10 +39,14 @@ contract TestStabeleToken is Test {
         // Deploy engine, token, and load config
         (_config, stableToken, eng) = deploy.run();
         config = _config;
+        engAddress = address(eng);
+ callFail = new CallFailed();
+
 
         // Fund test accounts
         vm.deal(user, 100 ether);
         vm.deal(user2, 100 ether);
+        vm.deal(engAddress, 100 ether);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -77,7 +83,7 @@ contract TestStabeleToken is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testBuyTokenFailedZeroEthSent() external {
-        vm.prank(user);
+        vm.prank(engAddress);
         vm.expectRevert(StableToken.StableToken__EthAmountCantBeZero.selector);
         stableToken.buyToken(user);
     }
@@ -90,7 +96,7 @@ contract TestStabeleToken is Test {
     }
 
     function testBuyFailedToAddressZero() external {
-        vm.prank(user);
+        vm.prank(engAddress);
         vm.expectRevert(StableToken.StableToken__UserBuyingAddressCantBeZero.selector);
         stableToken.buyToken{value: buyAmount}(address(0));
     }
@@ -117,7 +123,7 @@ contract TestStabeleToken is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testBuyTokenSucceeded() external {
-        vm.prank(user);
+        vm.prank(engAddress);
         stableToken.buyToken{value: buyAmount}(user);
 
         uint256 ethWorth = stableToken.getAndConvertEthPrice(buyAmount);
@@ -134,14 +140,14 @@ contract TestStabeleToken is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testSellTokenCheckUserHasZeroBalance() external {
-        vm.prank(user);
+        vm.prank(engAddress);
         vm.expectRevert(StableToken.StableToken__BalanceIsZero.selector);
         stableToken.sellToken(user1, buyAmount);
     }
 
     function testSellFailedCantSendToAddressZero() external {
-        vm.startPrank(user);
-        stableToken.buyToken{value: buyAmount}(user);
+        vm.startPrank(address(eng));
+        stableToken.buyToken{value: buyAmount}(engAddress);
 
         vm.expectRevert(StableToken.StableToken__UserSellingAddressCantBeZero.selector);
         stableToken.sellToken(address(0), buyAmount);
@@ -150,24 +156,24 @@ contract TestStabeleToken is Test {
     }
 
     function testSellTokenFailedWithdrawMoreThanDeposit() external {
-        vm.startPrank(user);
-        stableToken.buyToken{value: buyAmount}(user);
+        vm.startPrank(engAddress);
+        stableToken.buyToken{value: buyAmount}(engAddress);
 
         vm.expectRevert(StableToken.StableToken__InsufficientBalance.selector);
-        stableToken.sellToken(user, buyAmount * 13e18);
+        stableToken.sellToken(engAddress, buyAmount * 13e18);
 
         vm.stopPrank();
     }
 
     function testSellTokenRevertNoLiquidity() external {
-        vm.startPrank(user);
-        stableToken.buyToken{value: buyAmount}(user);
+        vm.startPrank(engAddress);
+        stableToken.buyToken{value: buyAmount}(engAddress);
 
         // Owner removes liquidity before sell
         stableToken.removeLiquidity();
 
         vm.expectRevert(StableToken.StableToken__NoEnoughLiquidity.selector);
-        stableToken.sellToken(user, buyAmount);
+        stableToken.sellToken(engAddress, buyAmount);
 
         vm.stopPrank();
     }
@@ -177,11 +183,11 @@ contract TestStabeleToken is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testSellTokenSucceeded() external {
-        vm.startPrank(user);
-        stableToken.buyToken{value: buyAmount}(user);
+        vm.startPrank(engAddress);
+        stableToken.buyToken{value: buyAmount}(engAddress);
 
-        uint256 userTokenBalance = stableToken.balanceOf(user);
-        uint256 userEthBalanceBefore = user.balance;
+        uint256 userTokenBalance = stableToken.balanceOf(engAddress);
+        uint256 userEthBalanceBefore = engAddress.balance;
 
         uint256 ethWorth = stableToken.convertUSDToEth(userTokenBalance);
 
@@ -189,10 +195,10 @@ contract TestStabeleToken is Test {
         uint256 sellFee = (ethWorth * 15) / 100;
         uint256 ethAmount = ethWorth - sellFee;
 
-        stableToken.sellToken(user, userTokenBalance);
+        stableToken.sellToken(engAddress, userTokenBalance);
 
-        assertEq(user.balance, userEthBalanceBefore + ethAmount);
-        assertEq(stableToken.balanceOf(user), 0);
+        assertEq(engAddress.balance, userEthBalanceBefore + ethAmount);
+        assertEq(stableToken.balanceOf(engAddress), 0);
 
         vm.stopPrank();
     }
@@ -202,28 +208,34 @@ contract TestStabeleToken is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testSellTokenSucceededButFailedToSendEth() external {
-        vm.startPrank(user);
-        stableToken.buyToken{value: buyAmount}(user);
+        vm.startPrank(engAddress);
+        stableToken.buyToken{value: buyAmount}(engAddress);
 
-        uint256 userBalance = stableToken.balanceOf(user);
+        uint256 userBalance = stableToken.balanceOf(engAddress);
 
         // Engine contract cannot receive ETH -> .call fails
         vm.expectRevert(StableToken.StableToken__FailedToTransferEth.selector);
-        stableToken.sellToken(address(eng), userBalance);
+        stableToken.sellToken(address(callFail), userBalance);
 
         vm.stopPrank();
     }
 
     function testSellTokenRevertFailedWithdrawEthLiquidity() external {
-        vm.startPrank(user);
-        stableToken.buyToken{value: buyAmount}(user);
+        vm.startPrank(engAddress);
+        stableToken.buyToken{value: buyAmount}(engAddress);
 
         // Transfer ownership so engine controls liquidity
-        stableToken.transferOwnership(address(eng));
+        stableToken.transferOwnership(address(callFail));
         vm.stopPrank();
 
-        vm.prank(address(eng));
+        vm.prank(address(callFail));
         vm.expectRevert(StableToken.StableToken__FailedToWithdrawEthLiquidity.selector);
         stableToken.removeLiquidity();
     }
+}
+
+
+contract CallFailed {
+
+
 }

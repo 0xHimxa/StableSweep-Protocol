@@ -70,7 +70,7 @@ contract DeployEngine is Script {
 
         // Transfer StableToken ownership to the engine
 
-        //  stableToken.transferOwnership(address(engine));
+          stableToken.transferOwnership(address(engine));
 
         // Register the engine as a consumer of the VRF subscription
         VRFCoordinatorV2_5Mock(params.vrfCoordinator).addConsumer(params.subId, address(engine));
