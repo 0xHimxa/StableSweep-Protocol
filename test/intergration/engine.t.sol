@@ -259,41 +259,30 @@ contract TestStabeleToken is Test {
         engine.claimRewardWon(0);
     }
 
-
-
     function testClaimRewardSuccessed() external buyTickets {
         engine.buyTickets(20e18);
         console.log(engine.ticketBalance(user));
-      uint256 userBalanceb4 = stableToken.balanceOf(user);
+        uint256 userBalanceb4 = stableToken.balanceOf(user);
 
         engine.enterRaffle(1);
 
         engine.requestRandomWords();
 
         VRFCoordinatorV2_5Mock(config.vrfCoordinator).fulfillRandomWords(uint256(engine.s_requestId()), address(engine));
-uint256 amountWon = engine.roundPrizePool(0);
+        uint256 amountWon = engine.roundPrizePool(0);
 
         engine.claimRewardWon(0);
-        console.log(amountWon,"amount");
+        console.log(amountWon, "amount");
         uint256 balanceAfer = stableToken.balanceOf(user);
 
-
-
-
-
         vm.stopPrank();
-assertEq(balanceAfer, userBalanceb4 + amountWon);
-assertEq(engine.roundPrizePool(0),0);
-assertEq(engine.rewardClaimed(0),true);
+        assertEq(balanceAfer, userBalanceb4 + amountWon);
+        assertEq(engine.roundPrizePool(0), 0);
+        assertEq(engine.rewardClaimed(0), true);
 
+        vm.prank(user);
+        vm.expectRevert(RaffileEngine.RaffileEngine__RewardAlreadyClaimed.selector);
 
-vm.prank(user);
-vm.expectRevert(RaffileEngine.RaffileEngine__RewardAlreadyClaimed.selector);
-
-engine.claimRewardWon(0);
-
-
-
-
+        engine.claimRewardWon(0);
     }
 }

@@ -21,6 +21,7 @@ contract StableToken is ERC20, Ownable {
     error StableToken__FailedToTransferEth();
     error StableToken__UserSellingAddressCantBeZero();
     error StableToken__FailedToWithdrawEthLiquidity();
+  error StableToken__NoLiquidityToWithdraw();
 
     /*//////////////////////////////////////////////////////////////
                            CONSTANT VARIABLES
@@ -151,6 +152,12 @@ contract StableToken is ERC20, Ownable {
 
     function removeLiquidity() external onlyOwner {
         address owner = owner();
+
+
+        if (address(this).balance == 0) {
+            revert StableToken__NoLiquidityToWithdraw();
+        }
+
 
         (bool success,) = payable(owner).call{value: address(this).balance}("");
 
