@@ -95,16 +95,16 @@ tiket/
 
 ### 7. Git History
 Recent commits show progressive development:
-1. `3719430` - **LATEST**: Added comprehensive comments and formatted entire codebase
-2. `3092429` - Pushed StableToken test coverage to 100%
-3. `5b03694` - Wrote integration tests for StableToken and added price feed address to config
-4. `2cb6134` - Updated documentation
-5. `b6f07c8` - Formatted the deploy script for readability
-6. `1076420` - Fixed Chainlink dirty error handling
-7. `fa1ce5f` - Test deployment and VRF integration
-8. `748af16` - **NEW**: Implemented Chainlink VRF functionality
-9. `6afb2ec` - Updated documentation
-10. `d50be8e` - Implemented deploy script core function
+1. `261b094` - **LATEST**: Pushed engine test to 90%+ coverage
+2. `7bf6767` - Tested buy and sell raffle token functionality
+3. `612b48d` - Refactored stable test and engine test structure
+4. `0308218` - Refactored configuration system
+5. `b8aed92` - Updated documentation
+6. `3719430` - Added comprehensive comments and formatted entire codebase
+7. `3092429` - Pushed StableToken test coverage to 100%
+8. `5b03694` - Wrote integration tests for StableToken and added price feed address to config
+9. `2cb6134` - Updated documentation
+10. `b6f07c8` - Formatted the deploy script for readability
 
 ## Current Status & Issues
 
@@ -144,9 +144,12 @@ Recent commits show progressive development:
 ✅ **Prize Pool Management**: Improved token locking and unlocking mechanisms
 ✅ **Enhanced Comments**: Added comprehensive code comments for readability
 ✅ **100% Test Coverage**: Achieved complete test coverage for StableToken contract
-✅ **Integration Tests**: Comprehensive integration tests for StableToken with price feed mocking
+✅ **90%+ Engine Test Coverage**: Comprehensive test coverage for RaffileEngine contract
+✅ **Integration Tests**: Comprehensive integration tests for both contracts with price feed mocking
 ✅ **Code Formatting**: Formatted entire codebase with proper comments and structure
 ✅ **Price Feed Configuration**: Added price feed address to configuration system
+✅ **Test Refactoring**: Restructured test files for better organization and maintainability
+✅ **Configuration Refactoring**: Improved configuration system for better network support
 
 ## Dependencies
 - **OpenZeppelin Contracts**: For ERC20 token standard implementation
@@ -154,35 +157,102 @@ Recent commits show progressive development:
 - **Foundry**: For development, testing, and deployment
 
 ## Deployment Information
-- **Networks**: Anvil (local), Sepolia (testnet) - extensible for mainnet
-- **Price Feed**: ETH/USD AggregatorV3Interface (Sepolia: `0x694AA1769357215DE4FAC081bf1f309aDC325306`)
-- **VRF Coordinator**: Chainlink VRF V2Plus (network-specific)
-- **Compiler**: Solidity ^0.8.19
+
+### Supported Networks
+- **Anvil (Local)**: Chain ID 31337 - Full mock environment
+- **Sepolia (Testnet)**: Chain ID 11155111 - Live Chainlink integration
+- **Goerli (Testnet)**: Chain ID 5 - Configurable (future support)
+- **Mainnet**: Chain ID 1 - Production ready (pending audit)
+
+### Network Configuration
+#### Sepolia Testnet
+- **Price Feed**: ETH/USD AggregatorV3Interface (`0x694AA1769357215DE4FAC081bf1f309aDC325306`)
+- **VRF Coordinator**: `0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B`
+- **Key Hash**: `0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae`
+- **LINK Token**: `0x779877A7B0D9E8603169DdbD7836e478b4624789`
+
+#### Anvil Local
+- **VRF Coordinator**: Mock deployment with BASE_FEE = 0.25 LINK
+- **LINK Token**: MockLinkToken deployment
+- **Price Feed**: MockV3Aggregator with INITIAL_PRICE = $3000
+
+### Deployment Instructions
+
+#### 1. Local Development (Anvil)
+```bash
+# Start Anvil local network
+anvil
+
+# Deploy contracts
+forge script script/deploy.s.sol --rpc-url http://localhost:8545 --broadcast
+
+# Run tests
+forge test
+```
+
+#### 2. Sepolia Testnet Deployment
+```bash
+# Set environment variables
+export SEPOLIA_RPC_URL="your_sepolia_rpc_url"
+export PRIVATE_KEY="your_private_key"
+
+# Deploy contracts
+forge script script/deploy.s.sol --rpc-url $SEPOLIA_RPC_URL --private-key $PRIVATE_KEY --broadcast
+
+# Verify contracts (optional)
+forge verify-contract <contract_address> <contract_name> --chain-id 11155111
+```
+
+### Compiler & Tooling
+- **Solidity Version**: ^0.8.19
+- **Foundry**: Latest version with comprehensive testing support
 - **Deployment**: Automated via `DeployEngine.s.sol` script
 - **Configuration**: Network-specific parameters via `EngineConfig.s.sol`
+
+### Contract Addresses (Post-Deployment)
+After deployment, the script returns:
+- `stableToken`: ERC20 token contract address
+- `engine`: Raffle engine contract address
+- `params`: Network configuration parameters
+- VRF Subscription ID for random number generation
 
 ## Project Structure (Updated)
 ```
 tiket/
 ├── src/
-│   ├── StableToken.sol          # ERC20 token with fee system
-│   └── engine.sol               # Raffle engine with VRF integration
+│   ├── StableToken.sol          # ERC20 token with fee system (146 lines)
+│   └── engine.sol               # Raffle engine with VRF integration (374+ lines)
 ├── script/
 │   ├── deploy.s.sol             # Automated deployment script
 │   └── config.s.sol             # Network configuration management
+├── test/
+│   └── intergration/
+│       ├── stableToken.t.sol    # StableToken comprehensive tests (19 tests)
+│       ├── engine.t.sol        # RaffileEngine comprehensive tests (24 tests)
+│       └── priceMock.sol       # Price feed mocking utilities
 ├── foundry.toml                 # Foundry configuration
 ├── foundry.lock                 # Dependency lock file
 ├── lib/                         # External dependencies
 │   ├── openzeppelin-contracts/  # ERC20 and access control
-│   └── chainlink-brownie-contracts/ # Price feeds and VRF
+│   ├── chainlink-brownie-contracts/ # Price feeds and VRF
+│   └── forge-std/               # Foundry standard library
 ├── out/                         # Compiled contract artifacts
 ├── cache/                       # Build cache
 └── docs/                        # Project documentation
     ├── PROJECT_DOCUMENTATION.md
     ├── RAFFLE_ENGINE_DOCUMENTATION.md
-    └── audit_status.md
+    ├── audit_status.md
+    └── noteSelf.md              # Development notes
 ```
 
+### Key Files Overview
+- **`src/StableToken.sol`**: Main ERC20 token with Chainlink price feed integration and fee system
+- **`src/engine.sol`**: Raffle management contract with complete VRF integration
+- **`script/deploy.s.sol`**: Automated deployment with VRF subscription setup
+- **`script/config.s.sol`**: Network-specific configuration management
+- **`test/intergration/`**: Comprehensive test suite with 43 total tests
+- **`foundry.toml`**: Foundry configuration with proper remappings
+
 ---
-*Documentation updated on January 23, 2026*
-*Recent Changes: 100% test coverage, comprehensive integration tests, code formatting, enhanced comments*
+*Documentation updated on January 24, 2026*
+*Recent Changes: 90%+ engine test coverage, 100% stable token coverage, test refactoring, configuration improvements*

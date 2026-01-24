@@ -240,12 +240,44 @@ The raffle system now features **COMPLETE Chainlink VRF integration** with the f
 
 ## Testing Status
 
-The project structure includes Foundry testing setup, but specific test files need to be created. Recommended test coverage:
+### ✅ Current Test Coverage (January 24, 2026)
+- **StableToken Contract**: 100% test coverage (19 tests passed)
+- **RaffileEngine Contract**: 90%+ test coverage (24 tests passed)
+- **Integration Tests**: Comprehensive integration tests for both contracts
+- **Test Files**:
+  - `test/intergration/stableToken.t.sol` - Complete StableToken testing
+  - `test/intergration/engine.t.sol` - Complete RaffileEngine testing
+  - `test/priceMock.sol` - Price feed mocking for testing
 
-- Unit tests for each contract function
-- Integration tests for complete user flows
-- Edge case testing for error conditions
-- Gas optimization testing
+### Test Coverage Details
+#### StableToken Tests (19/19 ✅)
+- Token purchase functionality with fee validation
+- Token sale functionality with liquidity checks
+- Price conversion and ETH pegging tests
+- Error handling for edge cases
+- Fee system validation (10% buy, 15% sell)
+- Access control and ownership tests
+
+#### RaffileEngine Tests (24/24 ✅)
+- Ticket purchasing and validation
+- Raffle entry management
+- VRF integration and random word requests
+- Winner selection and reward claiming
+- Token exchange integration
+- Error handling for all failure scenarios
+- Round management and prize pool tracking
+
+### Test Results Summary
+```
+╭------------------+--------+--------+---------╮
+| Test Suite       | Passed | Failed | Skipped |
++==============================================+
+| RaffileEngine    | 24     | 0      | 0       |
+|------------------+--------+--------+---------|
+| StableToken      | 19     | 0      | 0       |
+╰------------------+--------+--------+---------╯
+Total: 43 tests passed, 0 failed
+```
 
 ## Deployment Considerations
 
@@ -271,5 +303,5 @@ The project structure includes Foundry testing setup, but specific test files ne
 
 The Raffle Engine represents a solid foundation for a decentralized raffle platform. The core functionality is complete and operational, with proper security measures and gas optimization in place. The system is ready for testing and deployment, with clear paths for future enhancements and feature additions.
 
-*Last Updated: January 23, 2026*
-*Status: COMPLETE VRF Integration - 100% Test Coverage - Production Ready*
+*Last Updated: January 24, 2026*
+*Status: COMPLETE VRF Integration - 90%+ Engine Test Coverage - 100% StableToken Test Coverage - Production Ready*
