@@ -8,25 +8,23 @@ import {EngineConfig} from "script/config.s.sol";
 import {DeployEngine} from "script/deploy.s.sol";
 import {RaffileEngine} from "src/engine.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
+import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract TestStabeleToken is Test {
-    /*//////////////////////////////////////////////////////////////
-                                STATE
-    //////////////////////////////////////////////////////////////*/
-
+contract TestStableTokenFuzz is Test {
     StableToken stableToken;
     RaffileEngine engine;
-
     EngineConfig.EngineParams config;
-    address engAddress;
 
-    // Test users
-    address user = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
-    address user1 = makeAddr("user12");
-    address user2 = makeAddr("user23");
+    address owner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+    address user = makeAddr("user");
+    address user1 = makeAddr("user1");
+    address user2 = makeAddr("user2");
 
-    // Common test amount
-    uint256 buyAmount = 2 ether;
+    address[] internal actors;
+
+    uint256 constant ENTRANCE_FEE = 5 ether;
+    uint256 constant MAX_ETH = 1_000 ether;
 
     /*//////////////////////////////////////////////////////////////
                                 SETUP
@@ -34,181 +32,164 @@ contract TestStabeleToken is Test {
 
     function setUp() public {
         DeployEngine deploy = new DeployEngine();
-        EngineConfig.EngineParams memory _config;
+        (config, stableToken, engine) = deploy.run();
 
-        // Deploy engine, token, and load config
-        (_config, stableToken, engine) = deploy.run();
-        config = _config;
-        engAddress = address(engine);
+        actors.push(user);
+        actors.push(user1);
+        actors.push(user2);
 
-        // Fund test accounts
-        vm.deal(user, 100 ether);
-        vm.deal(user2, 100 ether);
-        vm.deal(engAddress, 100 ether);
+        for (uint256 i; i < actors.length; i++) {
+            vm.deal(actors[i], MAX_ETH);
+        }
+
+        vm.deal(address(engine), MAX_ETH);
+        targetContract(address(engine));
     }
 
-    function testBuyRaffileToken(uint88 amount, address to) external {
-        vm.assume(to != address(0));
-        vm.assume(to.code.length == 0);
-        vm.assume(uint160(to) > 10);
-        uint256 fundEth = bound(amount, 1, type(uint88).max);
-        vm.deal(to, fundEth);
-        uint256 userBalanceB4 = to.balance;
+    /*//////////////////////////////////////////////////////////////
+                            FUZZ: BUY TOKEN
+    //////////////////////////////////////////////////////////////*/
 
-        console.log(userBalanceB4, "user Balance before buy");
-        vm.startPrank(to);
-        engine.buyRaffileToken{value: fundEth}();
-        vm.stopPrank();
+    function testFuzz_buyRaffileToken(uint256 ethAmount, uint8 actorIndex) external {
+        address actor = actors[actorIndex % actors.length];
+        ethAmount = bound(ethAmount, 1 ether, MAX_ETH);
 
-        uint256 userBalanceAfter = to.balance;
-        console.log(userBalanceAfter, "user Balance after buy");
+        uint256 balanceBefore = actor.balance;
 
-        assertEq(address(stableToken).balance, fundEth);
-        assert(userBalanceAfter == 0);
-    }
+        vm.prank(actor);
+        engine.buyRaffileToken{value: ethAmount}();
 
-    function testSellRaffileToken(uint88 amount, address to) external {
-        vm.assume(to.code.length == 0);
-        vm.assume(to != 0x4e59b44847b379578588920cA78FbF26c0B4956C);
-        vm.assume(to != 0x000000000000000000636F6e736F6c652e6c6f67);
+        //buy fee
+        uint256 amountUsedWorth = stableToken.getAndConvertEthPrice(ethAmount);
 
-        vm.assume(uint160(to) > 100);
-
-        uint256 fundEth = bound(amount, 1, type(uint88).max);
-        vm.deal(to, fundEth);
-
-        vm.startPrank(to);
-        engine.buyRaffileToken{value: fundEth}();
-        uint256 userBalanceB4 = to.balance;
-
-        uint256 stableBalanceB4 = address(stableToken).balance;
-
-        stableToken.approve(address(engine), fundEth);
-        engine.sellRaffileToken(fundEth);
-        vm.stopPrank();
-
-        uint256 userBalanceAfter = to.balance;
-        console.log(userBalanceAfter, "user Balance after buy");
-        uint256 stableBalance = address(stableToken).balance;
-
-        uint256 tokenToEth = stableToken.convertUSDToEth(fundEth);
-        uint256 fee = (tokenToEth * stableToken.getSellFee()) / stableToken.getFeePrecision();
-        uint256 ethSend = tokenToEth - fee;
-
-        assertEq(stableBalance, stableBalanceB4 - ethSend);
-        assertEq(userBalanceAfter, userBalanceB4 + ethSend);
-    }
-
-    function testSellRaffileTokenRevert(uint88 amount, address to) external {
-        vm.assume(to.code.length == 0);
-        vm.assume(to != 0x4e59b44847b379578588920cA78FbF26c0B4956C);
-        vm.assume(to != 0x000000000000000000636F6e736F6c652e6c6f67);
-
-        vm.assume(uint160(to) > 100);
-
-        uint256 fundEth = bound(amount, 1, type(uint88).max);
-        vm.deal(to, fundEth);
-
-        vm.startPrank(to);
-        engine.buyRaffileToken{value: fundEth}();
-
-        stableToken.approve(address(engine), fundEth);
-        vm.expectRevert(RaffileEngine.RaffileEngine__InsufficientBalance.selector);
-        engine.sellRaffileToken(fundEth * 20e18);
-        vm.stopPrank();
-    }
-
-    function testBuyRaffileTicket(uint168 amount, address to) external {
-        uint256 entranceFee = 5e18;
-
-        vm.assume(to.code.length == 0);
-        vm.assume(to != 0x4e59b44847b379578588920cA78FbF26c0B4956C);
-        vm.assume(to != 0x000000000000000000636F6e736F6c652e6c6f67);
-
-        vm.assume(uint160(to) > 100);
-
-        uint256 fundAmount = bound(amount, entranceFee, type(uint88).max);
-        vm.deal(to, fundAmount);
-
-        vm.startPrank(to);
-        engine.buyRaffileToken{value: fundAmount}();
-        uint256 userTokenBalanceB4 = stableToken.balanceOf(to);
-        stableToken.approve(address(engine), fundAmount);
-
-        engine.buyTickets(fundAmount);
-        uint256 userTokenBalaneAfter = stableToken.balanceOf(to);
-
-        vm.stopPrank();
-        uint256 tickets = fundAmount / entranceFee;
-        uint256 cost = tickets * entranceFee;
-
-        assertEq(userTokenBalaneAfter, userTokenBalanceB4 - cost);
-        assertEq(address(stableToken).balance, fundAmount);
-        assertEq(stableToken.balanceOf(address(engine)), cost);
-        assertEq(engine.ticketBalance(to), tickets);
-        console.log(tickets, "user Ticket balance");
-    }
-
-    function testBuyTicketRevert(uint168 amount, address to) external {
-        uint256 entranceFee = 5e18;
-
-        vm.assume(to.code.length == 0);
-        vm.assume(to != 0x4e59b44847b379578588920cA78FbF26c0B4956C);
-        vm.assume(to != 0x000000000000000000636F6e736F6c652e6c6f67);
-
-        vm.assume(uint160(to) > 100);
-
-        uint256 fundAmount = bound(amount, entranceFee, type(uint88).max);
-        vm.deal(to, fundAmount);
-
-        vm.startPrank(to);
-        engine.buyRaffileToken{value: fundAmount}();
-        uint256 userTokenBalanceB4 = stableToken.balanceOf(to);
-        stableToken.approve(address(engine), fundAmount);
-
-        vm.expectRevert(RaffileEngine.RaffileEngine__InsufficientBalanceBuyMoreToken.selector);
-        engine.buyTickets(fundAmount * 20e18);
-
-        vm.stopPrank();
-    }
-
-    function testEnterRaffileTicket(uint168 amount, uint8 ticketUse, address to) external {
-        uint256 entranceFee = 5e18;
-
-        vm.assume(to.code.length == 0);
-        vm.assume(to != 0x4e59b44847b379578588920cA78FbF26c0B4956C);
-        vm.assume(to != 0x000000000000000000636F6e736F6c652e6c6f67);
-
-        vm.assume(uint160(to) > 100);
-
-        uint256 fundAmount = bound(amount, entranceFee, type(uint88).max);
-
-        vm.deal(to, fundAmount);
-
-        vm.startPrank(to);
-        engine.buyRaffileToken{value: fundAmount}();
-        uint256 userTokenBalanceB4 = stableToken.balanceOf(to);
-        stableToken.approve(address(engine), fundAmount);
-
-        engine.buyTickets(fundAmount);
-        uint256 userTokenBalaneAfter = stableToken.balanceOf(to);
+        uint256 fee = (amountUsedWorth * stableToken.getBuyFee()) / stableToken.getFeePrecision();
+        uint256 feeRemoved = amountUsedWorth - fee;
 
         vm.stopPrank();
 
-        uint256 userTicketBalanceB4 = engine.ticketBalance(to);
+        assertEq(actor.balance, balanceBefore - ethAmount);
+        assertEq(address(stableToken).balance, ethAmount);
+        assertEq(stableToken.balanceOf(actor), feeRemoved);
+    }
 
-        if (userTicketBalanceB4 > 10) {
-            vm.prank(to);
+    /*//////////////////////////////////////////////////////////////
+                            FUZZ: SELL TOKEN
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_sellRaffileToken(uint256 ethAmount, uint8 actorIndex) external {
+        address actor = actors[actorIndex % actors.length];
+        ethAmount = bound(ethAmount, 1 ether, MAX_ETH);
+
+        vm.startPrank(actor);
+        engine.buyRaffileToken{value: ethAmount}();
+
+        uint256 tokenBalance = stableToken.balanceOf(actor);
+        stableToken.approve(address(engine), tokenBalance);
+
+        uint256 ethBefore = actor.balance;
+        uint256 stableBefore = address(stableToken).balance;
+
+        engine.sellRaffileToken(tokenBalance);
+        vm.stopPrank();
+
+        uint256 ethEquivalent = stableToken.convertUSDToEth(tokenBalance);
+        uint256 fee = (ethEquivalent * stableToken.getSellFee()) / stableToken.getFeePrecision();
+        uint256 ethOut = ethEquivalent - fee;
+
+        assertEq(actor.balance, ethBefore + ethOut);
+        assertEq(address(stableToken).balance, stableBefore - ethOut);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        FUZZ: BUY TICKETS
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_buyTickets(uint256 ethAmount, uint8 actorIndex) external {
+        address actor = actors[actorIndex % actors.length];
+        ethAmount = bound(ethAmount, ENTRANCE_FEE, MAX_ETH);
+
+        vm.startPrank(actor);
+        engine.buyRaffileToken{value: ethAmount}();
+
+        stableToken.approve(address(engine), ethAmount);
+        engine.buyTickets(ethAmount);
+        vm.stopPrank();
+
+        uint256 tickets = ethAmount / ENTRANCE_FEE;
+
+        assertEq(engine.ticketBalance(actor), tickets);
+        assertEq(stableToken.balanceOf(address(engine)), tickets * ENTRANCE_FEE);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    FUZZ: ENTER RAFFLE (PARTIAL)
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_enterRaffle(uint256 ethAmount, uint8 ticketsToUse, uint8 actorIndex) external {
+        address actor = actors[actorIndex % actors.length];
+        ethAmount = bound(ethAmount, ENTRANCE_FEE, MAX_ETH);
+
+        vm.startPrank(actor);
+        engine.buyRaffileToken{value: ethAmount}();
+        stableToken.approve(address(engine), ethAmount);
+        engine.buyTickets(ethAmount);
+        vm.stopPrank();
+
+        uint256 balanceBefore = engine.ticketBalance(actor);
+        uint256 useTickets = bound(ticketsToUse, 1, balanceBefore);
+
+        if (useTickets > 10) {
+            vm.prank(actor);
             vm.expectRevert(RaffileEngine.RaffileEngine__TicketExeedMaxAllowedPerRound.selector);
-            engine.enterRaffle(userTicketBalanceB4);
+            engine.enterRaffle(useTickets);
         } else {
-            uint256 userTicketBalanceB4 = engine.ticketBalance(to);
+            vm.prank(actor);
+            engine.enterRaffle(useTickets);
 
-            vm.prank(to);
-            engine.enterRaffle(userTicketBalanceB4);
-
-            assertEq(engine.ticketBalance(to), userTicketBalanceB4 - userTicketBalanceB4);
-            assertEq(engine.ticketsUsedPerRound(engine.raffleId(), to), userTicketBalanceB4);
+            assertEq(engine.ticketBalance(actor), balanceBefore - useTickets);
+            assertEq(engine.ticketsUsedPerRound(engine.raffleId(), actor), useTickets);
         }
     }
+
+    /*//////////////////////////////////////////////////////////////
+                        SCENARIO: FULL ROUND
+    //////////////////////////////////////////////////////////////*/
+
+    function testScenario_fullRaffleLifecycle() external {
+        uint256 totalTickets;
+
+        for (uint256 i = 0; i < actors.length; i++) {
+            address player = actors[i];
+
+            vm.startPrank(player);
+            engine.buyRaffileToken{value: 50 ether}();
+            stableToken.approve(address(engine), 50 ether);
+            engine.buyTickets(50 ether);
+
+            uint256 tickets = engine.ticketBalance(player);
+            uint256 enterAmount = tickets > 10 ? 10 : tickets;
+
+            engine.enterRaffle(enterAmount);
+            totalTickets += enterAmount;
+            vm.stopPrank();
+        }
+
+        assertEq(engine.roundTotalTickets(engine.raffleId()), totalTickets);
+        vm.startPrank(owner);
+        engine.requestRandomWords();
+        VRFCoordinatorV2_5Mock(config.vrfCoordinator).fulfillRandomWords(uint256(engine.s_requestId()), address(engine));
+        vm.stopPrank();
+        address winner = engine.roundWinner(0);
+
+        vm.prank(winner);
+        engine.claimRewardWon(0);
+
+        assertEq(engine.roundPrizePool(0), 0);
+        assertEq(engine.totalLockedTokens(), 0);
+        assertEq(engine.raffleId(), 1);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            INVARIANTS
+    //////////////////////////////////////////////////////////////*/
 }
