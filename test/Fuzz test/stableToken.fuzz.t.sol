@@ -67,9 +67,8 @@ contract TestStabeleToken is Test {
     }
 
     function testBuyTokenOnlyOwner(uint88 amount, address to) external {
-       vm.assume(to.code.length == 0);
-       
-       
+        vm.assume(to.code.length == 0);
+
         uint256 amountUse = bound(amount, 1, type(uint88).max);
         vm.deal(to, amountUse);
 
@@ -134,13 +133,9 @@ contract TestStabeleToken is Test {
         stableToken.sellToken(to, amountUse);
     }
 
-
-
     function testRomveLiquidityRevert(address to) external {
-
-vm.prank(to);
-vm.expectRevert();
-stableToken.removeLiquidity();
-
+        vm.prank(to);
+        vm.expectRevert();
+        stableToken.removeLiquidity();
     }
 }
