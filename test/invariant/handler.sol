@@ -65,6 +65,10 @@ uint256 public mintedAmount;
 
     /// @notice ETH → raffle token
     function buyRaffileToken(uint256 ethAmount) external {
+
+if(msg.sender == address(stableToken))return;
+
+
       ethAmount = bound(ethAmount, MIN_ETH, MAX_ETH);
     _track(msg.sender);
 

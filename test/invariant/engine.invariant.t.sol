@@ -54,7 +54,7 @@ console.log( engine.activeTicket(),"engine record");
 function invariant_balances() external view{
 
 assertEq(stableToken.totalSupply(), handler.mintedAmount());
-assert(address(stableToken).balance >= handler.depositedEth());
+assert(address(stableToken).balance == handler.depositedEth());
 
 
 }
