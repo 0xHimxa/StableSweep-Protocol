@@ -96,7 +96,9 @@ contract TestStabeleToken is Test {
 
     function testBuyFailedToAddressZero() external {
         vm.prank(engAddress);
-        vm.expectRevert(StableToken.StableToken__UserBuyingAddressCantBeZero.selector);
+        vm.expectRevert(
+            StableToken.StableToken__UserBuyingAddressCantBeZero.selector
+        );
         stableToken.buyToken{value: buyAmount}(address(0));
     }
 
@@ -122,12 +124,20 @@ contract TestStabeleToken is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testBuyTokenSucceeded() external {
+        // Test Scenario:
+        // 1. Engine contract (owner) buys tokens.
+        // 2. Value sent: 2 ETH ($6000 assumed).
+        // 3. Buy Fee: 10%.
+        // 4. Expected: User gets $5400 worth of tokens.
+
         vm.prank(engAddress);
         stableToken.buyToken{value: buyAmount}(user);
 
         uint256 ethWorth = stableToken.getAndConvertEthPrice(buyAmount);
 
-        // Buy fee = 10%
+        // Fee Math:
+        // Fee = (6000 * 10) / 100 = 600
+        // Mint = 6000 - 600 = 5400
         uint256 fee = (ethWorth * 10) / 100;
         uint256 mintAmount = ethWorth - fee;
 
@@ -139,6 +149,8 @@ contract TestStabeleToken is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testSellTokenCheckUserHasZeroBalance() external {
+        // Scenario: User tries to sell tokens they don't have.
+        // Expected: Revert with BalanceIsZero.
         vm.prank(engAddress);
         vm.expectRevert(StableToken.StableToken__BalanceIsZero.selector);
         stableToken.sellToken(user1, buyAmount);
@@ -148,7 +160,11 @@ contract TestStabeleToken is Test {
         vm.startPrank(address(eng));
         stableToken.buyToken{value: buyAmount}(engAddress);
 
-        vm.expectRevert(StableToken.StableToken__UserSellingAddressCantBeZero.selector);
+        // Scenario: User tries to withdraw ETH to address(0).
+        // Expected: Revert with UserSellingAddressCantBeZero.
+        vm.expectRevert(
+            StableToken.StableToken__UserSellingAddressCantBeZero.selector
+        );
         stableToken.sellToken(address(0), buyAmount);
 
         vm.stopPrank();
@@ -158,6 +174,8 @@ contract TestStabeleToken is Test {
         vm.startPrank(engAddress);
         stableToken.buyToken{value: buyAmount}(engAddress);
 
+        // Scenario: User tries to sell more tokens than their balance.
+        // Expected: Revert with InsufficientBalance.
         vm.expectRevert(StableToken.StableToken__InsufficientBalance.selector);
         stableToken.sellToken(engAddress, buyAmount * 13e18);
 
@@ -168,7 +186,9 @@ contract TestStabeleToken is Test {
         vm.startPrank(engAddress);
         stableToken.buyToken{value: buyAmount}(engAddress);
 
-        // Owner removes liquidity before sell
+        // Scenario: Liquidity allows selling, but contract has been drained.
+        // Action: Owner calls removeLiquidity().
+        // Expected: Revert with NoEnoughLiquidity.
         stableToken.removeLiquidity();
 
         vm.expectRevert(StableToken.StableToken__NoEnoughLiquidity.selector);
@@ -182,6 +202,12 @@ contract TestStabeleToken is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testSellTokenSucceeded() external {
+        // Test Scenario:
+        // 1. User has tokens from a previous buy.
+        // 2. User sells all tokens.
+        // 3. Sell Fee: 15%.
+        // 4. Expected: User receives 85% of the ETH value.
+
         vm.startPrank(engAddress);
         stableToken.buyToken{value: buyAmount}(engAddress);
 
@@ -190,7 +216,9 @@ contract TestStabeleToken is Test {
 
         uint256 ethWorth = stableToken.convertUSDToEth(userTokenBalance);
 
-        // Sell fee = 15%
+        // Fee Math:
+        // Sell Fee = (ETH Value * 15) / 100
+        // Payout = ETH Value - Sell Fee
         uint256 sellFee = (ethWorth * 15) / 100;
         uint256 ethAmount = ethWorth - sellFee;
 
@@ -207,12 +235,15 @@ contract TestStabeleToken is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testSellTokenSucceededButFailedToSendEth() external {
+        // Scenario: Contract tries to send ETH to a contract that cannot receive it.
+        // Target: CallFailed contract (no receive/fallback function).
+        // Expected: Revert with FailedToTransferEth.
+
         vm.startPrank(engAddress);
         stableToken.buyToken{value: buyAmount}(engAddress);
 
         uint256 userBalance = stableToken.balanceOf(engAddress);
 
-        // Engine contract cannot receive ETH -> .call fails
         vm.expectRevert(StableToken.StableToken__FailedToTransferEth.selector);
         stableToken.sellToken(address(callFail), userBalance);
 
@@ -223,12 +254,15 @@ contract TestStabeleToken is Test {
         vm.startPrank(engAddress);
         stableToken.buyToken{value: buyAmount}(engAddress);
 
-        // Transfer ownership so engine controls liquidity
+        // Scenario: Owner tries to remove liquidity to a contract that rejects ETH.
+        // Expected: Revert with FailedToWithdrawEthLiquidity.
         stableToken.transferOwnership(address(callFail));
         vm.stopPrank();
 
         vm.prank(address(callFail));
-        vm.expectRevert(StableToken.StableToken__FailedToWithdrawEthLiquidity.selector);
+        vm.expectRevert(
+            StableToken.StableToken__FailedToWithdrawEthLiquidity.selector
+        );
         stableToken.removeLiquidity();
     }
 }

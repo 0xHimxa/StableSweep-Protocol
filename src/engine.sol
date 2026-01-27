@@ -2,54 +2,86 @@
 pragma solidity ^0.8.19;
 
 import {StableToken} from "./StableToken.sol";
-
-import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
-
-import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
-import {IVRFCoordinatorV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
-import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import {
+    LinkTokenInterface
+} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
+import {
+    VRFConsumerBaseV2Plus
+} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {
+    IVRFCoordinatorV2Plus
+} from "@chainlink/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
+import {
+    VRFV2PlusClient
+} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
 /**
- * @title RaffileEngine
+ * @title RaffleEngine
  * @author Himxa
- * @notice Handles raffle ticket purchases, raffle entry, and winner selection
- * @dev Assumes StableToken implements buyToken and sellToken correctly
+ * @notice Handles raffle ticket purchases, raffle entry, and winner selection using Chainlink VRF.
+ * @dev Integrates with StableToken for payments and Chainlink VRF for verifiable randomness.
  */
 contract RaffileEngine is VRFConsumerBaseV2Plus {
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
+    /// @notice Thrown when buying tokens with 0 ETH
     error RaffileEngine__EthAmountCantBeZero();
+    /// @notice Thrown when token purchase fails
     error RaffileEngine__FailedToBuyToken();
+    /// @notice Thrown when selling tokens with 0 balance
     error RaffileEngine__RaffileTokenBalanceIsZero();
+    /// @notice Thrown when selling more tokens than balance
     error RaffileEngine__InsufficientBalance();
+    /// @notice Thrown when token sale fails
     error RaffileEngine__FailedToSellToken();
+    /// @notice Thrown when converting 0 tokens to tickets results in 0 tickets
     error RaffileEngine__InsufficientTokenToBuyTicket();
+    /// @notice Thrown when user doesn't have enough tokens to buy requested tickets
     error RaffileEngine__InsufficientBalanceBuyMoreToken();
+    /// @notice Thrown when user is already joined (unused in current logic but kept for safety)
     error RaffileEngine__AlreadyJoined();
+    /// @notice Thrown when entering raffle with 0 tickets
     error RaffileEngine__TicketToUseCantBeZero();
+    /// @notice Thrown when entering raffle with more tickets than owned
     error RaffileEngine__InsufficientTicketBalance();
+    /// @notice Thrown when trying to pick winner with no players
     error RaffileEngine__NoPlayers();
+    /// @notice Thrown when binary search fails to find a winner (should not happen)
     error RaffileEngine__WinnerNotFound();
+    /// @notice Thrown when ticket purchase transfer fails
     error RaffileEngine__FailedToBuyTicket();
+    /// @notice Thrown when trying to enter a closed raffle
     error RaffileEngine__RaffleIsClosed();
+    /// @notice Thrown when exceeding max tickets per round
     error RaffileEngine__TicketExeedMaxAllowedPerRound();
+    /// @notice Thrown when non-winner tries to claim reward
     error RaffileEngine__YouAreNotTheWinner();
+    /// @notice Thrown when trying to claim reward before winner is set
     error RaffileEngine__RoundWinnerNotSet();
+    /// @notice Thrown when reward transfer fails
     error RaffileEngine__failedToClaimReward();
+    /// @notice Thrown when claiming an already claimed reward
     error RaffileEngine__RewardAlreadyClaimed();
+    /// @notice Thrown when upkeep is requested but conditions are not met
     error RaffileEngine__NotYetPickingWinner();
-
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
+    /// @notice Emitted when user buys StableToken
     event UserBuyToken(address indexed user, uint256 amount);
+    /// @notice Emitted when user sells StableToken
     event UserSellToken(address indexed user, uint256 amount);
+    /// @notice Emitted when user purchases tickets
     event UserBuyTickets(address indexed user, uint256 amount);
+    /// @notice Emitted when user enters a raffle round
     event UserEnterRaffle(address indexed user, uint256 amount);
+    /// @notice Emitted when a winner is picked for a round
     event RoundWinnerPicked(uint256 indexed roundId, address indexed winner);
+    /// @notice Emitted when a winner claims their reward
     event RewardClaimed(address indexed winner, uint256 amount);
+    /// @notice Emitted when Chainlink VRF is requested
     event RandomWordsRequested(uint256 indexed requestId);
 
     /*//////////////////////////////////////////////////////////////
@@ -61,12 +93,12 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
     }
 
     /*//////////////////////////////////////////////////////////////
-                          STATE VARIABLES
+                           STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
     StableToken public immutable stableToken;
 
     uint256 public raffleId;
-    uint256 immutable public entranceFee;
+    uint256 public immutable entranceFee;
     uint256 public maxTicketsPerRound = 10;
     uint256 public randomword;
     RaffleState public currentState;
@@ -94,10 +126,10 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
     /// @notice Total StableToken locked across all active rounds
     uint256 public totalLockedTokens;
     uint256 public totalTicketBought;
-  uint256 public totalTicketCost;
-  uint256 public activeTicket;
-     uint256 private s_lastTimeStamp;
-      uint256 private immutable i_interval;
+    uint256 public totalTicketCost;
+    uint256 public activeTicket;
+    uint256 private s_lastTimeStamp;
+    uint256 private immutable i_interval;
 
     ///
     //chalink vrf
@@ -137,6 +169,16 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
+    /**
+     * @notice Initializes the Raffle Engine
+     * @param _stableTokenAddress Address of the StableToken contract
+     * @param vrfCordinatorAddress Address of Chainlink VRF Coordinator
+     * @param _keyHash Gas lane key hash
+     * @param _linkTokenAddress Address of LINK token
+     * @param subId Chainlink VRF Subscription ID
+     * @param _interval Time interval between raffle rounds (automation)
+     * @param _entranceFee Cost of one ticket in StableTokens
+     */
     constructor(
         address _stableTokenAddress,
         address vrfCordinatorAddress,
@@ -167,6 +209,11 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
     /**
      * @notice Converts StableToken into raffle tickets
      * @param tokenAmount Amount of StableToken user wants to spend
+     *
+     * Logic:
+     * - Checks user balance.
+     * - Calculates tickets: tickets = tokenAmount / entranceFee.
+     * - Example: 50 Tokens / 5 Token Fee = 10 Tickets.
      */
     function buyTickets(uint256 tokenAmount) external {
         uint256 userTokenBalance = stableToken.balanceOf(msg.sender);
@@ -183,7 +230,11 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         ticketBalance[msg.sender] += tickets;
 
         // Transfer StableToken from user to contract
-        bool success = stableToken.transferFrom(msg.sender, address(this), cost);
+        bool success = stableToken.transferFrom(
+            msg.sender,
+            address(this),
+            cost
+        );
         if (!success) {
             revert RaffileEngine__FailedToBuyTicket();
         }
@@ -191,7 +242,7 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         totalTicketBought += tickets;
         totalTicketCost += cost;
         totalLockedTokens += cost;
-  activeTicket += tickets;
+        activeTicket += tickets;
 
         emit UserBuyTickets(msg.sender, tickets);
     }
@@ -203,6 +254,13 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
     /**
      * @notice Enters the current raffle round using tickets
      * @param ticketsToUse Number of tickets to enter with
+     *
+     * Example Logic:
+     * - Current Total Tickets: 10.
+     * - User Enters with 5 Tickets.
+     * - Range Assigned: [11, 15].
+     * - New Total Tickets: 15.
+     * - Array: TicketRange(start: 11, end: 15, owner: user).
      */
     function enterRaffle(uint256 ticketsToUse) external {
         if (currentState == RaffleState.Closed) {
@@ -232,8 +290,9 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         roundPrizePool[raffleId] += ticketsToUse * entranceFee;
         activeTicket -= ticketsToUse;
 
-
-        roundRanges[raffleId].push(TicketRange({start: start, end: end, owner: msg.sender}));
+        roundRanges[raffleId].push(
+            TicketRange({start: start, end: end, owner: msg.sender})
+        );
 
         // Update total tickets for the round
         roundTotalTickets[raffleId] = end;
@@ -241,46 +300,36 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         emit UserEnterRaffle(msg.sender, ticketsToUse);
     }
 
+    //chain Link Automation
 
-
-//chain Link Automation
-
-
+    /**
+     * @notice Check if upkeep is needed (time passed, open state, has balance/players)
+     * @return upKeepNeeded True if raffle needs to be closed and winner picked
+     */
     function checkUpKeep(
         bytes memory /* callData */
     ) public view returns (bool upKeepNeeded, bytes memory /* performData */) {
+        bool timeHasPassed = (block.timestamp - s_lastTimeStamp) >= i_interval;
+        bool isOpen = currentState == RaffleState.Open;
+        bool hasBalance = address(this).balance > 0;
+        bool hasPlayers = roundTotalTickets[raffleId] > 0;
+        upKeepNeeded = timeHasPassed && isOpen && hasBalance && hasPlayers;
 
-      bool timeHasPassed = (block.timestamp - s_lastTimeStamp) >= i_interval;  
-      bool isOpen = currentState == RaffleState.Open;
-      bool hasBalance = address(this).balance > 0;
-      bool hasPlayers = roundTotalTickets[raffleId] > 0;
-      upKeepNeeded = timeHasPassed && isOpen && hasBalance && hasPlayers;
-
-
-return (upKeepNeeded, '');
-
-
-
-    }  
-
-
-
-
-
-
+        return (upKeepNeeded, "");
+    }
 
     // vrf function implementaion
 
+    /**
+     * @notice Triggers Chainlink VRF request if upkeep is needed.
+     * @dev Called by Chainlink Automation or manually.
+     */
     function performUpkeep(bytes calldata /* performData */) external {
-(bool upkeepNeeded,) = checkUpKeep("");
+        (bool upkeepNeeded, ) = checkUpKeep("");
 
-if(!upkeepNeeded) revert RaffileEngine__NotYetPickingWinner();
+        if (!upkeepNeeded) revert RaffileEngine__NotYetPickingWinner();
 
- currentState = RaffleState.Closed;
-
-
-
-
+        currentState = RaffleState.Closed;
 
         // Will revert if subscription is not set and funded.
         s_requestId = s_vrfCoordinator.requestRandomWords(
@@ -290,7 +339,9 @@ if(!upkeepNeeded) revert RaffileEngine__NotYetPickingWinner();
                 requestConfirmations: requestConfirmations,
                 callbackGasLimit: callbackGasLimit,
                 numWords: numWords,
-                extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
+                extraArgs: VRFV2PlusClient._argsToBytes(
+                    VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
+                )
             })
         );
 
@@ -302,18 +353,21 @@ if(!upkeepNeeded) revert RaffileEngine__NotYetPickingWinner();
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Picks a raffle winner using a random number
-     * @param randomWords External random value from chainlink
+     * @notice Callback function used by VRF Coordinator to set random number and pick winner
+     * @param randomWords Random values returned by Chainlink
      *
+     * Logic:
+     * 1. Get random number from VRF (e.g., 987654321).
+     * 2. Total Tickets = 20.
+     * 3. Winning Ticket = (987654321 % 20) + 1 = 2.
+     * 4. Binary Search finds which user owns ticket #2.
+     * 5. Sets winner and resets round.
      */
     function fulfillRandomWords(
         uint256,
         /* requestId */
         uint256[] calldata randomWords
-    )
-        internal
-        override
-    {
+    ) internal override {
         randomword = randomWords[0];
 
         uint256 total = roundTotalTickets[raffleId];
@@ -349,9 +403,13 @@ if(!upkeepNeeded) revert RaffileEngine__NotYetPickingWinner();
         revert RaffileEngine__WinnerNotFound();
     }
 
+    /**
+     * @dev Resets state for the next raffle round
+     */
     function _resetRaffleRound() internal {
         raffleId += 1;
         currentState = RaffleState.Open;
+        s_lastTimeStamp = block.timestamp;
     }
 
     /**
@@ -421,7 +479,11 @@ if(!upkeepNeeded) revert RaffileEngine__NotYetPickingWinner();
         }
 
         // Transfer StableToken from user to contract
-        bool successT = stableToken.transferFrom(msg.sender, address(this), value);
+        bool successT = stableToken.transferFrom(
+            msg.sender,
+            address(this),
+            value
+        );
         if (!successT) {
             revert RaffileEngine__FailedToSellToken();
         }

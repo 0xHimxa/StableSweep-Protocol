@@ -2,34 +2,51 @@
 pragma solidity ^0.8.19;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {
+    AggregatorV3Interface
+} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- *Note this code is not tightly pegged to eth yet will fixed that
+ * @title FortuneFlip Stable Token
+ * @author Himxa
+ * @notice ERC20 token with buy/sell mechanics pegged to ETH value via Chainlink price feeds.
+ * @dev Takes a fee on buy (10%) and sell (15%) operations.
+ *      Precision handling: Uses 1e10 to scale Chainlink's 8 decimals to 18 decimals.
  */
-
 contract StableToken is ERC20, Ownable {
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
+    /// @notice Thrown when buying address is zero address
     error StableToken__UserBuyingAddressCantBeZero();
+    /// @notice Thrown when ETH amount sent for purchase is zero
     error StableToken__EthAmountCantBeZero();
+    /// @notice Thrown when user balance is zero during sell check
     error StableToken__BalanceIsZero();
+    /// @notice Thrown when user tries to sell more than they own
     error StableToken__InsufficientBalance();
+    /// @notice Thrown when contract doesn't have enough ETH for sell redemption
     error StableToken__NoEnoughLiquidity();
+    /// @notice Thrown when ETH transfer to seller fails
     error StableToken__FailedToTransferEth();
+    /// @notice Thrown when selling address is zero address
     error StableToken__UserSellingAddressCantBeZero();
+    /// @notice Thrown when owner fails to withdraw liquidity
     error StableToken__FailedToWithdrawEthLiquidity();
+    /// @notice Thrown when trying to withdraw from empty contract
     error StableToken__NoLiquidityToWithdraw();
 
     /*//////////////////////////////////////////////////////////////
                            CONSTANT VARIABLES
     //////////////////////////////////////////////////////////////*/
-    // Used to scale Chainlink ETH price (price feed decimals adjustment)
+    /// @dev Used to scale Chainlink ETH price (price feed decimals adjustment)
+    /// @notice Chainlink price feeds usually have 8 decimals for ETH/USD.
+    ///         To match Solidity's standard 18 decimals, we need to multiply by 1e10.
+    ///         Example: Price $3000 -> 3000 * 10^8 (Chainlink) * 10^10 (Precision) = 3000 * 10^18.
     uint256 private constant PRECISION = 1e10;
 
-    // Used to normalize ETH amount to 18 decimals
+    /// @dev Used to normalize ETH amount to 18 decimals
     uint256 private constant PRICE_PRECISION = 1e18;
 
     uint256 private constant buy_fee = 10;
@@ -40,7 +57,13 @@ contract StableToken is ERC20, Ownable {
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
-    constructor(address _feedaddress) ERC20("FortuneFlip", "Flip") Ownable(msg.sender) {
+    /**
+     * @notice Initializes the token and price feed
+     * @param _feedaddress Address of the Chainlink V3 Aggregator (ETH/USD)
+     */
+    constructor(
+        address _feedaddress
+    ) ERC20("FortuneFlip", "Flip") Ownable(msg.sender) {
         feeAddress = _feedaddress;
     }
 
@@ -48,7 +71,7 @@ contract StableToken is ERC20, Ownable {
                                MODIFIERS
     //////////////////////////////////////////////////////////////*/
 
-    // Ensures msg.sender is valid and ETH sent is non-zero
+    /// @dev Ensures msg.sender is valid and ETH sent is non-zero
     modifier ethAmountAndAddressChecks() {
         if (msg.value == 0) {
             revert StableToken__EthAmountCantBeZero();
@@ -57,7 +80,7 @@ contract StableToken is ERC20, Ownable {
         _;
     }
 
-    // Ensures the user has enough token balance for sell
+    /// @dev Ensures the user has enough token balance for sell
     modifier checkBalanceOfUser(uint256 _amount) {
         if (balanceOf(msg.sender) == 0) {
             revert StableToken__BalanceIsZero();
@@ -74,14 +97,29 @@ contract StableToken is ERC20, Ownable {
                           EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    // Mints tokens to the specified user based on ETH sent
-    function buyToken(address to) external payable ethAmountAndAddressChecks onlyOwner returns (bool) {
+    /**
+     * @notice Mints tokens to the user in exchange for ETH.
+     * @dev Applies a 10% buy fee.
+     *
+     * Example Scenario:
+     * 1. User sends 1 ETH (assuming 1 ETH = $3000).
+     * 2. Total Value = $3000.
+     * 3. Fee (10%) = $300.
+     * 4. User receives = $2700 worth of tokens.
+     *
+     * @param to The address to mint tokens to.
+     * @return bool Success status.
+     */
+    function buyToken(
+        address to
+    ) external payable ethAmountAndAddressChecks onlyOwner returns (bool) {
         if (to == address(0)) {
             revert StableToken__UserBuyingAddressCantBeZero();
         }
 
         uint256 _amountWorth = getAndConvertEthPrice(msg.value);
-        uint256 amountMinintfeeRemoved = (_amountWorth * buy_fee) / fee_pricision;
+        uint256 amountMinintfeeRemoved = (_amountWorth * buy_fee) /
+            fee_pricision;
         uint256 amount = _amountWorth - amountMinintfeeRemoved;
 
         // Mint tokens to the user
@@ -91,12 +129,24 @@ contract StableToken is ERC20, Ownable {
     }
 
     /**
-     * @dev Sell tokens back to the contract for ETH.
-     * Caller must:
-     * - own the tokens
-     * - have approved this contract to spend them
+     * @notice Sells tokens back to the contract for ETH.
+     * @dev Applies a 15% sell fee. Caller must have approved contract or be owner.
+     *
+     * Example Scenario:
+     * 1. User sells 100 Tokens (assuming 1 Token = $1).
+     * 2. Total Value = $100.
+     * 3. Equivalent ETH is calculated (e.g., 0.033 ETH if ETH=$3000).
+     * 4. Fee (15%) is deducted from the ETH amount.
+     * 5. User receives 85% of the ETH value.
+     *
+     * @param to The address to receive ETH.
+     * @param amount The amount of tokens to sell.
+     * @return bool Success status.
      */
-    function sellToken(address to, uint256 amount) external checkBalanceOfUser(amount) onlyOwner returns (bool) {
+    function sellToken(
+        address to,
+        uint256 amount
+    ) external checkBalanceOfUser(amount) onlyOwner returns (bool) {
         if (to == address(0)) {
             revert StableToken__UserSellingAddressCantBeZero();
         }
@@ -116,7 +166,7 @@ contract StableToken is ERC20, Ownable {
         _burn(msg.sender, amount);
 
         // Send ETH to the user
-        (bool success,) = payable(to).call{value: ethWorthSellfeeRemoved}("");
+        (bool success, ) = payable(to).call{value: ethWorthSellfeeRemoved}("");
         if (!success) {
             revert StableToken__FailedToTransferEth();
         }
@@ -128,28 +178,48 @@ contract StableToken is ERC20, Ownable {
                          INTERNAL VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    // Converts ETH amount to token amount using Chainlink ETH/USD price feed
-    function getAndConvertEthPrice(uint256 ethAmount) public view returns (uint256 _amountWorth) {
+    /**
+     * @notice Converts ETH amount to Token amount (USD value scaled).
+     * @param ethAmount The amount of ETH to convert.
+     * @return _amountWorth The equivalent Token amount.
+     */
+    function getAndConvertEthPrice(
+        uint256 ethAmount
+    ) public view returns (uint256 _amountWorth) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(feeAddress);
 
-        (, int256 price,,,) = priceFeed.latestRoundData();
+        (, int256 price, , , ) = priceFeed.latestRoundData();
 
         // Token amount = ETH price * ETH sent, scaled
-        _amountWorth = ((uint256(price) * PRECISION) * ethAmount) / PRICE_PRECISION;
+        _amountWorth =
+            ((uint256(price) * PRECISION) * ethAmount) /
+            PRICE_PRECISION;
     }
 
-    // Converts token amount back to ETH based on Chainlink price feed
-    function convertUSDToEth(uint256 _amountWorth) public view returns (uint256 ethAmount) {
+    /**
+     * @notice Converts Token amount to ETH amount.
+     * @param _amountWorth The amount of Tokens to convert.
+     * @return ethAmount The equivalent ETH amount.
+     */
+    function convertUSDToEth(
+        uint256 _amountWorth
+    ) public view returns (uint256 ethAmount) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(feeAddress);
 
-        (, int256 price,,,) = priceFeed.latestRoundData();
+        (, int256 price, , , ) = priceFeed.latestRoundData();
 
         // ETH amount = token USD value divided by ETH price
-        ethAmount = (_amountWorth * PRICE_PRECISION) / (uint256(price) * PRECISION);
+        ethAmount =
+            (_amountWorth * PRICE_PRECISION) /
+            (uint256(price) * PRECISION);
     }
 
     // for testing
 
+    /**
+     * @notice Withdraws all ETH liquidity from the contract.
+     * @dev Only callable by owner. Used for testing or emergency drainage.
+     */
     function removeLiquidity() external onlyOwner {
         address owner = owner();
 
@@ -157,7 +227,9 @@ contract StableToken is ERC20, Ownable {
             revert StableToken__NoLiquidityToWithdraw();
         }
 
-        (bool success,) = payable(owner).call{value: address(this).balance}("");
+        (bool success, ) = payable(owner).call{value: address(this).balance}(
+            ""
+        );
 
         if (!success) {
             revert StableToken__FailedToWithdrawEthLiquidity();
