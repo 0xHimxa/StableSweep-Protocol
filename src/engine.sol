@@ -98,8 +98,8 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
     StableToken public immutable stableToken;
 
     uint256 public raffleId;
-    uint256 public immutable entranceFee;
-    uint256 public maxTicketsPerRound = 10;
+    uint256 public immutable i_entranceFee;
+    uint256 public immutable i_maxTicketsPerRound;
     uint256 public randomword;
     RaffleState public currentState;
 
@@ -197,7 +197,8 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         s_subscriptionId = subId;
         s_lastTimeStamp = block.timestamp;
         i_interval = _interval;
-        entranceFee = _entranceFee;
+        i_entranceFee = _entranceFee;
+        i_maxTicketsPerRound = 10;
     }
 
     receive() external payable {}
@@ -221,12 +222,12 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
             revert RaffileEngine__InsufficientBalanceBuyMoreToken();
         }
 
-        uint256 tickets = tokenAmount / entranceFee;
+        uint256 tickets = tokenAmount / i_entranceFee;
         if (tickets == 0) {
             revert RaffileEngine__InsufficientTokenToBuyTicket();
         }
 
-        uint256 cost = tickets * entranceFee;
+        uint256 cost = tickets * i_entranceFee;
         ticketBalance[msg.sender] += tickets;
 
         // Transfer StableToken from user to contract
@@ -277,7 +278,7 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
 
         ticketsUsedPerRound[raffleId][msg.sender] += ticketsToUse;
 
-        if (ticketsUsedPerRound[raffleId][msg.sender] > maxTicketsPerRound) {
+        if (ticketsUsedPerRound[raffleId][msg.sender] > i_maxTicketsPerRound) {
             revert RaffileEngine__TicketExeedMaxAllowedPerRound();
         }
 
@@ -287,7 +288,7 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         // Assign ticket range
         uint256 start = roundTotalTickets[raffleId] + 1;
         uint256 end = start + ticketsToUse - 1;
-        roundPrizePool[raffleId] += ticketsToUse * entranceFee;
+        roundPrizePool[raffleId] += ticketsToUse * i_entranceFee;
         activeTicket -= ticketsToUse;
 
         roundRanges[raffleId].push(
