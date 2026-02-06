@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+//@audit-info using floating solidity version
+
 import {StableToken} from "./StableToken.sol";
 import {
     LinkTokenInterface
@@ -124,6 +126,7 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
     mapping(uint256 => uint256) public roundPrizePool;
 
     /// @notice Total StableToken locked across all active rounds
+    //@ audit-info should use s_ for storage var to make it more nice for reading
     uint256 public totalLockedTokens;
     uint256 public totalTicketBought;
     uint256 public totalTicketCost;
@@ -188,6 +191,8 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         uint256 _interval,
         uint256 _entranceFee
     ) VRFConsumerBaseV2Plus(vrfCordinatorAddress) {
+
+        //audit-info  no address zero checks
         stableToken = StableToken(_stableTokenAddress);
         currentState = RaffleState.Open;
         s_vrfCoordinator = IVRFCoordinatorV2Plus(vrfCordinatorAddress);
@@ -231,6 +236,7 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         ticketBalance[msg.sender] += tickets;
 
         // Transfer StableToken from user to contract
+        //q not following CEI external calls should be done last @audit-info
         bool success = stableToken.transferFrom(
             msg.sender,
             address(this),
@@ -370,7 +376,7 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         uint256[] calldata randomWords
     ) internal override {
         randomword = randomWords[0];
-
+//@audit i this is already checked by the checkpupkeep
         uint256 total = roundTotalTickets[raffleId];
         if (total == 0) {
             revert RaffileEngine__NoPlayers();
@@ -442,6 +448,7 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
             revert RaffileEngine__failedToClaimReward();
         }
 
+//@audit-info not follwing CEI should be  before success
         emit RewardClaimed(winnerAddress, amountWon);
     }
 
@@ -461,6 +468,7 @@ contract RaffileEngine is VRFConsumerBaseV2Plus {
         if (!success) {
             revert RaffileEngine__FailedToBuyToken();
         }
+//@audit-info not follwing CEI should be  before success
 
         emit UserBuyToken(msg.sender, msg.value);
     }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
+//@audit-info using floating solidity version
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {
@@ -64,13 +65,17 @@ contract StableToken is ERC20, Ownable {
     constructor(
         address _feedaddress
     ) ERC20("FortuneFlip", "Flip") Ownable(msg.sender) {
+        //@audit-info missing zero address cheks
         feeAddress = _feedaddress;
+        
     }
 
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
     //////////////////////////////////////////////////////////////*/
 
+//@audit info msg.sender cant zero it not been cheked  and also the   the modiefier is checking for msg.value only
+// pobbly eth sending an be zero
     /// @dev Ensures msg.sender is valid and ETH sent is non-zero
     modifier ethAmountAndAddressChecks() {
         if (msg.value == 0) {
@@ -116,12 +121,15 @@ contract StableToken is ERC20, Ownable {
         if (to == address(0)) {
             revert StableToken__UserBuyingAddressCantBeZero();
         }
+        //@audit making call to external contrat  : oracle manipulation hek about it 
 
         uint256 _amountWorth = getAndConvertEthPrice(msg.value);
+        //@audit numbers might lost due to solidity an handle deimals
         uint256 amountMinintfeeRemoved = (_amountWorth * buy_fee) /
             fee_pricision;
         uint256 amount = _amountWorth - amountMinintfeeRemoved;
 
+//@audit followUp  why using the keyword super
         // Mint tokens to the user
         super._mint(to, amount);
 
@@ -152,6 +160,7 @@ contract StableToken is ERC20, Ownable {
         }
 
         // Calculate the ETH amount to send for the given token amount
+        //@audit making call to external contrat  : oracle manipulation hek about it 
         uint256 ethWorth = convertUSDToEth(amount);
 
         uint256 fee = (ethWorth * sell_fee) / fee_pricision;
@@ -190,6 +199,11 @@ contract StableToken is ERC20, Ownable {
 
         (, int256 price, , , ) = priceFeed.latestRoundData();
 
+    //@audit-High: the price data is not been updated if the price drop users can sell it fro hight price here
+         // the price is not been updated
+
+         //q what if the price returned a negative is not been checked and handle u just type cast straight 
+
         // Token amount = ETH price * ETH sent, scaled
         _amountWorth =
             ((uint256(price) * PRECISION) * ethAmount) /
@@ -207,6 +221,10 @@ contract StableToken is ERC20, Ownable {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(feeAddress);
 
         (, int256 price, , , ) = priceFeed.latestRoundData();
+
+         //@audit-High: the price data is not been updated if the price drop users can sell it fro hight price here
+         // the price is not been updated
+         //q what if the price returned a negative is not been checked and handle u just type cast straight 
 
         // ETH amount = token USD value divided by ETH price
         ethAmount =

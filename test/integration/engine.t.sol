@@ -44,11 +44,11 @@ contract TestStabeleToken is Test {
     }
 
     function testEntranceFee() external view {
-        assertEq(engine.entranceFee(), 5e18);
+        assertEq(engine.i_entranceFee(), 5e18);
     }
 
     function testMaxTicketsPerRound() external view {
-        assertEq(engine.maxTicketsPerRound(), 10);
+        assertEq(engine.i_maxTicketsPerRound(), 10);
     }
 
     function testTotalLockedTokens() external view {
